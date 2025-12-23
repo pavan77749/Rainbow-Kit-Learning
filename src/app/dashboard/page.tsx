@@ -40,8 +40,7 @@ export default function Dashboard() {
   // 🔹 Handle write errors
   if (writeError && !errorMessage) {
     setErrorMessage(
-      writeError.shortMessage ||
-        'Transaction failed. Please try again.'
+      writeError.message || 'Transaction failed. Please try again.'
     )
   }
 

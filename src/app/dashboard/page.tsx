@@ -9,43 +9,43 @@ import {
 } from 'wagmi'
 import { counterAbi } from '@/config/abi/counterAbi'
 import { CONTRACTS, type SupportedChainId } from '@/config/contracts'
+import { useState } from 'react'
 
 export default function Dashboard() {
   const { address, chain } = useAccount()
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const contractAddress =
     chain && CONTRACTS[chain.id as SupportedChainId]?.counter
 
-  // 🔹 READ: getCount()
-  const {
-    data: count,
-    isLoading: isReading,
-    refetch,
-  } = useReadContract({
+  const { data: count, refetch } = useReadContract({
     address: contractAddress,
     abi: counterAbi,
     functionName: 'getCount',
-    query: {
-      enabled: !!contractAddress,
-    },
+    query: { enabled: !!contractAddress },
   })
 
-  // 🔹 WRITE: increment()
   const {
     writeContract,
     data: txHash,
     isPending,
+    error: writeError,
   } = useWriteContract()
 
-  // 🔹 WAIT for transaction confirmation
-  const {
-    isLoading: isConfirming,
-    isSuccess,
-  } = useWaitForTransactionReceipt({
-    hash: txHash,
-  })
+  const { isSuccess, isLoading: isConfirming } =
+    useWaitForTransactionReceipt({
+      hash: txHash,
+    })
 
-  // 🔹 Refresh data after tx success
+  // 🔹 Handle write errors
+  if (writeError && !errorMessage) {
+    setErrorMessage(
+      writeError.shortMessage ||
+        'Transaction failed. Please try again.'
+    )
+  }
+
+  // 🔹 Refetch on success
   if (isSuccess) {
     refetch()
   }
@@ -54,41 +54,41 @@ export default function Dashboard() {
     <Web3Guard>
       <h1>Dashboard</h1>
       <p>Welcome: {address}</p>
-      <p>Network: {chain?.name}</p>
 
-      <hr />
-
-      <h2>Counter Contract</h2>
-
-      {isReading && <p>Loading counter…</p>}
-      {count !== undefined && (
-        <p>Current Count: {count.toString()}</p>
-      )}
+      <h2>Counter</h2>
+      <p>Value: {count?.toString()}</p>
 
       <button
-        onClick={() =>
+        onClick={() => {
+          setErrorMessage(null)
           writeContract({
             address: contractAddress!,
             abi: counterAbi,
             functionName: 'increment',
           })
-        }
+        }}
         disabled={isPending || isConfirming}
       >
         {isPending
           ? 'Confirm in wallet…'
           : isConfirming
           ? 'Transaction pending…'
-          : 'Increment Counter'}
+          : 'Increment'}
       </button>
 
-      {txHash && (
-        <p>
-          Tx Hash: {txHash.slice(0, 10)}...
+      {/* 🔴 Error UI */}
+      {errorMessage && (
+        <p style={{ color: 'red' }}>
+          ❌ {errorMessage}
         </p>
       )}
 
-      {isSuccess && <p>✅ Transaction confirmed!</p>}
+      {/* ✅ Success UI */}
+      {isSuccess && (
+        <p style={{ color: 'green' }}>
+          ✅ Transaction confirmed!
+        </p>
+      )}
     </Web3Guard>
   )
 }
